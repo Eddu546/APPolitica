@@ -37,8 +37,12 @@ const Header = () => {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           <Link to="/" className="flex items-center space-x-3">
-            <OncaLogo className="w-10 h-10 text-yellow-500" />
-            <span className="text-2xl font-extrabold text-gray-900 tracking-tight">Fiscaliza, <span className="text-yellow-500">MBL!</span></span>
+            <div className="w-8 h-8 text-blue-600">
+                <OncaLogo />
+            </div>
+            <span className="text-2xl font-extrabold text-gray-900 tracking-tight">
+              FISCALIZA
+            </span>
           </Link>
 
           <div className="hidden lg:flex items-center space-x-1">
@@ -50,7 +54,7 @@ const Header = () => {
                   to={item.href}
                   className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(item.href)
-                      ? 'text-black bg-yellow-400'
+                      ? 'text-white bg-blue-600'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
@@ -68,9 +72,9 @@ const Header = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar político..."
-                className="bg-gray-100 text-gray-900 border border-gray-300 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="bg-gray-100 text-gray-900 border border-gray-300 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
-              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-yellow-500">
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600">
                 <Search className="w-5 h-5" />
               </button>
             </form>
@@ -81,8 +85,7 @@ const Header = () => {
               variant="ghost"
               size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Abrir menu"
-              className="text-gray-600 hover:text-yellow-500 hover:bg-gray-100"
+              className="text-gray-600 hover:text-blue-600 hover:bg-gray-100"
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
@@ -103,7 +106,7 @@ const Header = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar político..."
-                  className="w-full bg-gray-100 text-gray-900 border border-gray-300 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="w-full bg-gray-100 text-gray-900 border border-gray-300 rounded-md py-2 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
                 <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
                   <Search className="w-5 h-5" />
@@ -118,7 +121,7 @@ const Header = () => {
                     onClick={() => setIsMenuOpen(false)}
                     className={`flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium transition-colors ${
                       isActive(item.href)
-                        ? 'text-black bg-yellow-400'
+                        ? 'text-white bg-blue-600'
                         : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >

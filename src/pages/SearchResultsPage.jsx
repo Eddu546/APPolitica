@@ -44,13 +44,13 @@ const SearchResultsPage = () => {
                     transition={{ delay: index * 0.1 }}
                   >
                     <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
-                      <img  class="w-20 h-20 rounded-full object-cover border-2 border-gray-200" alt={`Foto de ${politician.name}`} src="https://images.unsplash.com/photo-1580128660010-fd027e1e587a" />
+                      <img className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" alt={`Foto de ${politician.name}`} src="..." />
                       <div className="flex-grow text-center sm:text-left">
                         <h2 className="text-xl font-bold">{politician.name}</h2>
                         <p className="text-gray-600">{politician.party}</p>
                       </div>
                       <Link to={`/politico/${politician.id}`} className="w-full sm:w-auto">
-                        <Button className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-bold">
+                        <Button className="bg-blue-600 hover:bg-blue-700">
                           Ver Perfil
                         </Button>
                       </Link>

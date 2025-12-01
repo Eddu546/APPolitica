@@ -135,8 +135,7 @@ const DnaPoliticoPage = () => {
                   className="bg-white p-4 rounded-lg shadow-md border border-gray-200 flex items-center space-x-4"
                 >
                   <span className="text-2xl font-bold text-gray-400 w-8 text-center">{index + 1}</span>
-                  <img  class="w-16 h-16 rounded-full object-cover" alt={`Foto de ${politician.name}`} src="https://images.unsplash.com/photo-1580128660010-fd027e1e587a" />
-                  <div className="flex-grow">
+                    <img className="w-16 h-16 rounded-full object-cover" alt={`Foto de ${politician.name}`} src={politician.photo} />                  <div className="flex-grow">
                     <Link to={`/politico/${politician.id}`} className="text-lg font-bold hover:text-yellow-500 transition-colors">{politician.name}</Link>
                     <p className="text-sm text-gray-500">{politician.party}</p>
                   </div>

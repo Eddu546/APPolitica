@@ -44,86 +44,72 @@ const HomePage = () => {
   return (
     <>
       <Helmet>
-        <title>Fiscaliza, MBL! - A Ferramenta de Fiscalização do Cidadão</title>
-        <meta name="description" content="Fiscalize deputados e senadores com a plataforma de transparência do MBL. Análise de desempenho, gastos, votações e muito mais." />
+        <title>FISCALIZA - Transparência Política</title>
+        <meta name="description" content="Fiscalize deputados e senadores com a plataforma de transparência Fiscaliza. Análise de desempenho, gastos e votações." />
       </Helmet>
 
-      <section className="bg-black bg-onca-spots text-gray-100 py-20 md:py-28">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="text-center">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.8, type: 'spring' }}
-        className="inline-block mb-6"
-      >
-        <OncaLogo className="w-24 h-24" />
-      </motion.div>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-slate-900 to-blue-900 text-white py-20 md:py-32 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, type: 'spring' }}
+              className="inline-block mb-6 text-blue-400 w-24 h-24"
+            >
+              <OncaLogo />
+            </motion.div>
 
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-        className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tighter"
-      >
-        O poder de fiscalizar,
-        <br />
-        <span className="text-yellow-400">agora em suas mãos.</span>
-      </motion.h1>
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight"
+            >
+              Fiscalização Cidadã.
+              <br />
+              <span className="text-blue-400">Transparência Total.</span>
+            </motion.h1>
 
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.4 }}
-        className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto text-gray-300"
-      >
-        A ferramenta definitiva do MBL para você monitorar, analisar e cobrar os políticos brasileiros. Chega de desculpas.
-      </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-xl md:text-2xl mb-10 max-w-2xl mx-auto text-gray-300"
+            >
+              Monitore gastos, votações e o desempenho real dos políticos brasileiros em uma única plataforma independente.
+            </motion.p>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.6 }}
-      >
-        <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Digite o nome de um político para começar..."
-            className="w-full bg-white/90 border-2 border-gray-300 rounded-lg py-4 pl-6 pr-36 text-lg text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
-          />
-          <Button
-            type="submit"
-            size="lg"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-yellow-400 text-black hover:bg-yellow-500 font-bold"
-          >
-            Fiscalizar
-            <Search className="ml-2 w-5 h-5" />
-          </Button>
-        </form>
-      </motion.div>
-    </div>
-  </div>
-  <img  
-  src="/onca-texture.png"
-  alt="Detalhe de onça"
-  className="absolute bottom-1 left 28 w-80 md:w-100 opacity-80 pointer-events-none z-0"
-/>
-</section>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <form onSubmit={handleSearch} className="max-w-xl mx-auto relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Busque por deputado ou senador..."
+                  className="w-full bg-white text-gray-900 border-0 rounded-full py-4 pl-8 pr-36 text-lg shadow-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/50"
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="absolute right-2 top-2 bottom-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold px-6"
+                >
+                  Buscar
+                </Button>
+              </form>
+            </motion.div>
+          </div>
+        </div>
+      </section>
 
-
+      {/* Features Section */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Uma plataforma, três formas de agir.
-            </h2>
-            <p className="text-xl text-gray-500 max-w-3xl mx-auto">
-              Informação é poder. Use-o com sabedoria.
-            </p>
-          </div>
-
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
@@ -133,41 +119,25 @@ const HomePage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.2 }}
-                  className="bg-white rounded-xl p-8 shadow-md border border-gray-200 hover:border-yellow-400 transition-colors flex flex-col hover-lift"
+                  className="bg-white rounded-2xl p-8 shadow-sm hover:shadow-xl border border-gray-100 transition-all flex flex-col hover:-translate-y-1"
                 >
                   <div className="flex-grow">
-                    <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-6">
-                      <Icon className="w-6 h-6 text-yellow-500" />
+                    <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-50 rounded-xl mb-6">
+                      <Icon className="w-7 h-7 text-blue-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">{feature.title}</h3>
-                    <p className="text-gray-600 mb-6">{feature.description}</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
+                    <p className="text-gray-600 mb-6 leading-relaxed">{feature.description}</p>
                   </div>
                   <Link to={feature.link}>
-                    <Button variant="outline" className="w-full border-yellow-400 text-yellow-500 hover:bg-yellow-400 hover:text-black font-semibold">
+                    <Button variant="ghost" className="w-full justify-between group text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                       {feature.cta}
-                      <ArrowRight className="ml-2 w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
                     </Button>
                   </Link>
                 </motion.div>
               );
             })}
           </div>
-        </div>
-      </section>
-
-      <section className="py-20 bg-black text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            A mudança começa com a sua atitude.
-          </h2>
-          <p className="text-xl text-gray-300 mb-8">
-            Junte-se ao MBL e a milhares de brasileiros na luta por um país mais livre e transparente.
-          </p>
-          <a href="https://mbl.org.br/" target="_blank" rel="noopener noreferrer">
-            <Button size="lg" className="bg-yellow-400 text-black hover:bg-yellow-500 font-bold px-10">
-              Faça Parte do MBL
-            </Button>
-          </a>
         </div>
       </section>
     </>

@@ -1,153 +1,141 @@
-
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Filter, Users, MapPin, Calendar } from 'lucide-react';
+import { Search, Filter, Users, MapPin, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import AdBanner from '@/components/AdBanner'; // Import do banner de anúncio
+
+// Backup de emergência (Caso a API falhe totalmente)
+const MOCK_DEPUTADOS = [
+  { id: 204536, nome: 'Kim Kataguiri', siglaPartido: 'UNIÃO', siglaUf: 'SP', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/204536.jpg', email: 'dep.kimkataguiri@camara.leg.br' },
+  { id: 204534, nome: 'Tabata Amaral', siglaPartido: 'PSB', siglaUf: 'SP', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/204534.jpg', email: 'dep.tabataamaral@camara.leg.br' },
+  { id: 220593, nome: 'Nikolas Ferreira', siglaPartido: 'PL', siglaUf: 'MG', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/220593.jpg', email: 'dep.nikolasferreira@camara.leg.br' },
+  { id: 220586, nome: 'Guilherme Boulos', siglaPartido: 'PSOL', siglaUf: 'SP', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/220586.jpg', email: 'dep.guilhermeboulos@camara.leg.br' },
+  { id: 204358, nome: 'Eduardo Bolsonaro', siglaPartido: 'PL', siglaUf: 'SP', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/92346.jpg', email: 'dep.eduardobolsonaro@camara.leg.br' },
+  { id: 178866, nome: 'Gleisi Hoffmann', siglaPartido: 'PT', siglaUf: 'PR', urlFoto: 'https://www.camara.leg.br/internet/deputado/bandep/74439.jpg', email: 'dep.gleisihoffmann@camara.leg.br' },
+];
 
 const DeputadosPage = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [selectedParty, setSelectedParty] = useState('');
+  
+  const [deputados, setDeputados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [usingBackup, setUsingBackup] = useState(false);
 
-  // Mock data para demonstração
-  const [deputados] = useState([
-    {
-      id: 1,
-      nome: 'João Silva',
-      partido: 'PT',
-      estado: 'SP',
-      foto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 45,
-      presenca: 89,
-      gastos: 'R$ 125.000'
-    },
-    {
-      id: 2,
-      nome: 'Maria Santos',
-      partido: 'PSDB',
-      estado: 'RJ',
-      foto: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 32,
-      presenca: 92,
-      gastos: 'R$ 98.500'
-    },
-    {
-      id: 3,
-      nome: 'Carlos Oliveira',
-      partido: 'PL',
-      estado: 'MG',
-      foto: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 28,
-      presenca: 85,
-      gastos: 'R$ 110.200'
-    },
-    {
-      id: 4,
-      nome: 'Ana Costa',
-      partido: 'PSOL',
-      estado: 'BA',
-      foto: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 52,
-      presenca: 94,
-      gastos: 'R$ 87.300'
-    },
-    {
-      id: 5,
-      nome: 'Roberto Lima',
-      partido: 'MDB',
-      estado: 'RS',
-      foto: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 38,
-      presenca: 88,
-      gastos: 'R$ 132.800'
-    },
-    {
-      id: 6,
-      nome: 'Fernanda Rocha',
-      partido: 'PDT',
-      estado: 'PR',
-      foto: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
-      proposicoes: 41,
-      presenca: 91,
-      gastos: 'R$ 104.600'
-    }
-  ]);
+  useEffect(() => {
+    const fetchDeputados = async () => {
+      setLoading(true);
+      try {
+        // CORREÇÃO CRÍTICA:
+        // Adicionei 'idLegislatura=57' para pegar TODOS da legislatura atual (2023-2027),
+        // mesmo que estejam de licença médica ou particular.
+        // Aumentei itens para 1000 para garantir que a paginação não corte ninguém.
+        const response = await fetch('https://dadosabertos.camara.leg.br/api/v2/deputados?idLegislatura=57&ordem=ASC&ordenarPor=nome&itens=1000');
+        
+        if (!response.ok) throw new Error('Falha na resposta da API');
+        
+        const data = await response.json();
+        
+        if (data.dados && data.dados.length > 0) {
+          // Remove duplicatas (caso a API retorne o mesmo deputado por causa de mudanças de status)
+          const deputadosUnicos = data.dados.filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i);
+          setDeputados(deputadosUnicos);
+        } else {
+          throw new Error('Lista vazia recebida da API');
+        }
+      } catch (error) {
+        console.error("Erro na API, usando backup:", error);
+        setDeputados(MOCK_DEPUTADOS);
+        setUsingBackup(true);
+        toast({
+          title: "Modo Offline",
+          description: "API instável. Exibindo dados locais para demonstração.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const estados = ['SP', 'RJ', 'MG', 'BA', 'RS', 'PR', 'SC', 'GO', 'PE', 'CE'];
-  const partidos = ['PT', 'PSDB', 'PL', 'PSOL', 'MDB', 'PDT', 'PP', 'REPUBLICANOS', 'PSB', 'UNIÃO'];
+    fetchDeputados();
+  }, [toast]);
+
+  const estados = ['SP', 'RJ', 'MG', 'BA', 'RS', 'PR', 'PE', 'CE', 'PA', 'MA', 'SC', 'GO', 'PB', 'ES', 'AM', 'RN', 'AL', 'PI', 'MT', 'DF', 'MS', 'SE', 'RO', 'TO', 'AC', 'AP', 'RR'];
+  const partidos = ['PT', 'PL', 'PP', 'MDB', 'PSD', 'REPUBLICANOS', 'UNIÃO', 'PSB', 'PDT', 'PSDB', 'PCdoB', 'PSOL', 'PODE', 'AVANTE', 'PATRIOTA', 'SOLIDARIEDADE', 'NOVO', 'REDE', 'CIDADANIA', 'PV'];
 
   const filteredDeputados = deputados.filter(deputado => {
     const matchesSearch = deputado.nome.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesState = selectedState === '' || deputado.estado === selectedState;
-    const matchesParty = selectedParty === '' || deputado.partido === selectedParty;
+    const matchesState = selectedState === '' || deputado.siglaUf === selectedState;
+    const matchesParty = selectedParty === '' || deputado.siglaPartido === selectedParty;
     return matchesSearch && matchesState && matchesParty;
   });
 
   const handleDeputadoClick = (deputado) => {
-    toast({
-      title: "🚧 Perfil detalhado em desenvolvimento",
-      description: `O perfil completo de ${deputado.nome} ainda não está implementado—mas não se preocupe! Você pode solicitar isso no seu próximo prompt! 🚀`,
-    });
+    navigate(`/politico/${deputado.id}`);
   };
 
   return (
     <>
       <Helmet>
-        <title>Deputados Federais - CivicTech Brasil</title>
-        <meta name="description" content="Explore o perfil completo dos 513 deputados federais brasileiros. Veja proposições, presença e gastos públicos de cada parlamentar." />
+        <title>Deputados Federais - FISCALIZA</title>
+        <meta name="description" content="Lista de deputados federais." />
       </Helmet>
 
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="text-center">
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="text-center max-w-3xl mx-auto">
               <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 Deputados Federais
               </h1>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Conheça os 513 deputados federais brasileiros e acompanhe suas atividades parlamentares em tempo real.
+              <p className="text-lg text-gray-600">
+                Acompanhe quem são e o que fazem os 513 representantes na Câmara.
               </p>
+              {usingBackup && (
+                <div className="mt-4 inline-flex items-center px-4 py-2 rounded-full bg-yellow-50 text-yellow-800 text-sm font-medium">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  Visualizando dados de demonstração (Backup)
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white border-b sticky top-20 z-40 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Buscar deputado..."
+                  placeholder="Buscar por nome..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                 />
               </div>
 
-              {/* State Filter */}
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
               >
                 <option value="">Todos os Estados</option>
-                {estados.map(estado => (
-                  <option key={estado} value={estado}>{estado}</option>
+                {estados.map(uf => (
+                  <option key={uf} value={uf}>{uf}</option>
                 ))}
               </select>
 
-              {/* Party Filter */}
               <select
                 value={selectedParty}
                 onChange={(e) => setSelectedParty(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
               >
                 <option value="">Todos os Partidos</option>
                 {partidos.map(partido => (
@@ -155,7 +143,6 @@ const DeputadosPage = () => {
                 ))}
               </select>
 
-              {/* Clear Filters */}
               <Button
                 variant="outline"
                 onClick={() => {
@@ -163,76 +150,81 @@ const DeputadosPage = () => {
                   setSelectedState('');
                   setSelectedParty('');
                 }}
-                className="w-full"
+                className="w-full text-gray-600 hover:text-blue-600"
               >
                 <Filter className="w-4 h-4 mr-2" />
-                Limpar Filtros
+                Limpar
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Results */}
+        {/* ÁREA DE ANÚNCIO - BANNER TOPO */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <AdBanner />
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-6">
+          <div className="mb-6 flex justify-between items-center">
             <p className="text-gray-600">
-              Mostrando {filteredDeputados.length} de {deputados.length} deputados
+              Mostrando <strong>{filteredDeputados.length}</strong> parlamentares
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDeputados.map((deputado, index) => (
-              <motion.div
-                key={deputado.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer hover-lift"
-                onClick={() => handleDeputadoClick(deputado)}
-              >
-                <div className="p-6">
-                  <div className="flex items-center space-x-4 mb-4">
-                    <img
-                      src={deputado.foto}
-                      alt={deputado.nome}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{deputado.nome}</h3>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">{deputado.partido}</span>
-                        <span className="flex items-center">
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredDeputados.map((deputado, index) => (
+                <motion.div
+                  key={deputado.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-100 overflow-hidden group"
+                  onClick={() => handleDeputadoClick(deputado)}
+                >
+                  <div className="p-6 flex items-center space-x-4">
+                    <div className="relative">
+                      <img
+                        src={deputado.urlFoto}
+                        alt={deputado.nome}
+                        className="w-20 h-20 rounded-full object-cover border-4 border-gray-100 group-hover:border-blue-100 transition-colors"
+                        loading="lazy"
+                        onError={(e) => { e.target.src = 'https://www.camara.leg.br/tema/assets/images/foto-deputado-sem-foto.png'; }}
+                      />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        {deputado.nome}
+                      </h3>
+                      <div className="flex items-center mt-1 space-x-2">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          {deputado.siglaPartido}
+                        </span>
+                        <span className="inline-flex items-center text-sm text-gray-500">
                           <MapPin className="w-3 h-3 mr-1" />
-                          {deputado.estado}
+                          {deputado.siglaUf}
                         </span>
                       </div>
+                      <p className="text-xs text-gray-400 mt-2 truncate">
+                        {deputado.email}
+                      </p>
                     </div>
                   </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
 
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-blue-600">{deputado.proposicoes}</div>
-                      <div className="text-xs text-gray-600">Proposições</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-green-600">{deputado.presenca}%</div>
-                      <div className="text-xs text-gray-600">Presença</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-orange-600">{deputado.gastos}</div>
-                      <div className="text-xs text-gray-600">Gastos</div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {filteredDeputados.length === 0 && (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          {!loading && filteredDeputados.length === 0 && (
+            <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+              <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum deputado encontrado</h3>
-              <p className="text-gray-600">Tente ajustar os filtros de busca.</p>
+              <p className="text-gray-500">Tente ajustar os filtros de busca.</p>
             </div>
           )}
         </div>
