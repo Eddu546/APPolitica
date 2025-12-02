@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { useParams, Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Mail, Phone, MapPin, ExternalLink, 
-  Loader2, ScrollText, PenTool, CheckCircle2, TrendingDown,
+  ArrowLeft, Mail, MapPin, ExternalLink, 
+  Loader2, ScrollText, PenTool, CheckCircle2, 
   Shield, GraduationCap, Banknote, HeartPulse, X, Award, Users,
-  Building, PiggyBank, Car, Wallet, FileText, Calendar
+  Building, PiggyBank, Car, Wallet, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import AdBanner from '@/components/AdBanner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { calculateDeputadoAssiduity, filterComplexProjects } from '@/lib/legislative-logic';
 
 // --- COMPONENTES AUXILIARES ---
 
@@ -78,6 +79,7 @@ const PoliticianProfilePage = () => {
   const [projetosTematicos, setProjetosTematicos] = useState({
     seguranca: [], economia: [], educacao: [], saude: [], pecs: [], outros: []
   });
+  const [projetosComplexos, setProjetosComplexos] = useState([]);
   
   const [todasDespesas, setTodasDespesas] = useState([]); 
   const [despesasFiltradas, setDespesasFiltradas] = useState([]); 
@@ -85,6 +87,7 @@ const PoliticianProfilePage = () => {
   const [totalGastoPeriodo, setTotalGastoPeriodo] = useState(0);
 
   const [kpis, setKpis] = useState({ totalPL: 0, totalPEC: 0 });
+  const [presenca, setPresenca] = useState({ score: 0, label: '-', description: '' });
 
   const [analiseGastos, setAnaliseGastos] = useState({
     usaCarro: false, 
@@ -94,7 +97,7 @@ const PoliticianProfilePage = () => {
   
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalCategory, setModalCategory] = useState('outros'); // Valor padrão seguro
+  const [modalCategory, setModalCategory] = useState('outros');
 
   const anosDisponiveis = ['2023', '2024', '2025', 'Todos'];
   const mesesDisponiveis = [
@@ -105,13 +108,10 @@ const PoliticianProfilePage = () => {
     { val: 10, label: 'Outubro' }, { val: 11, label: 'Novembro' }, { val: 12, label: 'Dezembro' }
   ];
 
-  // Utilitários
   const normalize = (text) => text ? text.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
 
   const categorizarProjeto = (projeto) => {
-    // Verifica PEC explicitamente primeiro
     if (projeto.siglaTipo === 'PEC' || projeto.siglaTipo === 'PEC ') return 'pecs';
-    
     const texto = normalize(projeto.ementa);
     if (texto.match(/CRIME|PENA|POLICIA|SEGURANCA|ARMAS|PRESIDIO|DROGA|CORRUPCAO|LAVAGEM|PENAL|DETENCAO/)) return 'seguranca';
     if (texto.match(/IMPOSTO|TRIBUT|TAXA|ECONOMIA|GASTO|ORCAMENTO|PRIVATIZA|RECEITA|FISCAL|MOEDA|CREDITO|FINAN/)) return 'economia';
@@ -120,14 +120,20 @@ const PoliticianProfilePage = () => {
     return 'outros';
   };
 
-  // Funções de Busca (API)
   const fetchAllPages = async (urlBase) => {
     let allData = [];
     let page = 1;
     let hasMore = true;
     while (hasMore) {
       try {
-        const res = await fetch(`${urlBase}&pagina=${page}&itens=100`);
+        const separator = urlBase.includes('?') ? '&' : '?';
+        const res = await fetch(`${urlBase}${separator}pagina=${page}&itens=100`, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        if (!res.ok) throw new Error('API Error');
+        
         const json = await res.json();
         if (json.dados && json.dados.length > 0) {
           allData = [...allData, ...json.dados];
@@ -137,6 +143,7 @@ const PoliticianProfilePage = () => {
           hasMore = false;
         }
       } catch (e) {
+        console.warn('Fetch error:', e);
         hasMore = false;
       }
     }
@@ -145,9 +152,10 @@ const PoliticianProfilePage = () => {
 
   const fetchProjetosPorAno = async (ano, tipo) => {
     try {
-      // Delay artificial mínimo para não estourar rate limit quando chamado em loop
-      await new Promise(r => setTimeout(r, 100));
-      const res = await fetch(`https://dadosabertos.camara.leg.br/api/v2/proposicoes?idDeputadoAutor=${id}&siglaTipo=${tipo}&ano=${ano}&itens=500&ordem=DESC&ordenarPor=id`);
+      await new Promise(r => setTimeout(r, 100)); // Rate limit prevention
+      const res = await fetch(`https://dadosabertos.camara.leg.br/api/v2/proposicoes?idDeputadoAutor=${id}&siglaTipo=${tipo}&ano=${ano}&itens=500&ordem=DESC&ordenarPor=id`, {
+          headers: { 'Accept': 'application/json' }
+      });
       const json = await res.json();
       return json.dados || [];
     } catch (e) {
@@ -160,7 +168,9 @@ const PoliticianProfilePage = () => {
     const fetchPerfil = async () => {
       if (!id) return;
       try {
-        const respInfo = await fetch(`https://dadosabertos.camara.leg.br/api/v2/deputados/${id}`);
+        const respInfo = await fetch(`https://dadosabertos.camara.leg.br/api/v2/deputados/${id}`, {
+            headers: { 'Accept': 'application/json' }
+        });
         const dataInfo = await respInfo.json();
         setPolitico(dataInfo.dados);
       } catch (error) {
@@ -170,7 +180,7 @@ const PoliticianProfilePage = () => {
     fetchPerfil();
   }, [id]);
 
-  // 2. Carrega Dados Dinâmicos (Projetos e Gastos)
+  // 2. Carrega Dados Dinâmicos
   useEffect(() => {
     const fetchDadosDinamicos = async () => {
       if (!id) return;
@@ -180,38 +190,41 @@ const PoliticianProfilePage = () => {
         let listaPL = [];
         let listaPEC = [];
         let listaDespesas = [];
+        let listaEventos = [];
 
-        // --- LÓGICA SEGURA PARA "TODOS" (Evita Rate Limit) ---
-        if (anoSelecionado === 'Todos') {
-            // Busca sequencial para não travar a API
-            const anos = [2023, 2024, 2025];
+        const anosParaBuscar = anoSelecionado === 'Todos' ? [2023, 2024, 2025] : [parseInt(anoSelecionado)];
+
+        for (const ano of anosParaBuscar) {
+            // Projetos
+            const pl = await fetchProjetosPorAno(ano, 'PL');
+            listaPL = [...listaPL, ...pl];
+            const pec = await fetchProjetosPorAno(ano, 'PEC');
+            listaPEC = [...listaPEC, ...pec];
             
-            for (const ano of anos) {
-                const pl = await fetchProjetosPorAno(ano, 'PL');
-                listaPL = [...listaPL, ...pl];
-                
-                const pec = await fetchProjetosPorAno(ano, 'PEC');
-                listaPEC = [...listaPEC, ...pec];
-                
-                // Despesas
-                const despesasAno = await fetchAllPages(`https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/despesas?ano=${ano}&ordem=DESC&ordenarPor=dataDocumento`);
-                listaDespesas = [...listaDespesas, ...despesasAno];
-            }
-        } else {
-            // Busca simples para um ano só
-            const [pl, pec] = await Promise.all([
-                fetchProjetosPorAno(anoSelecionado, 'PL'),
-                fetchProjetosPorAno(anoSelecionado, 'PEC')
-            ]);
-            listaPL = pl;
-            listaPEC = pec;
-            listaDespesas = await fetchAllPages(`https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/despesas?ano=${anoSelecionado}&ordem=DESC&ordenarPor=dataDocumento`);
+            // Despesas
+            const despesasUrl = `https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/despesas?ano=${ano}&ordem=DESC&ordenarPor=dataDocumento`;
+            const despesasAno = await fetchAllPages(despesasUrl);
+            listaDespesas = [...listaDespesas, ...despesasAno];
+
+            // Eventos (Assiduidade) - Trocado de Votacoes para Eventos (mais leve e seguro)
+            const eventosUrl = `https://dadosabertos.camara.leg.br/api/v2/deputados/${id}/eventos?dataInicio=${ano}-01-01&dataFim=${ano}-12-31&ordem=ASC&ordenarPor=dataHoraInicio`;
+            const eventosAno = await fetchAllPages(eventosUrl);
+            listaEventos = [...listaEventos, ...eventosAno];
         }
 
-        // Categorização dos Projetos
-        const tematicos = { seguranca: [], economia: [], educacao: [], saude: [], pecs: [], outros: [] };
-        const todosProjetos = [...listaPL, ...listaPEC];
+        // --- PROCESSAMENTO ---
         
+        // 1. Assiduidade (Baseada em Eventos)
+        const assiduidadeData = calculateDeputadoAssiduity(listaEventos);
+        setPresenca(assiduidadeData);
+
+        // 2. Projetos Complexos
+        const todosProjetos = [...listaPL, ...listaPEC];
+        const complexos = filterComplexProjects(todosProjetos);
+        setProjetosComplexos(complexos);
+
+        // 3. Categorização Temática
+        const tematicos = { seguranca: [], economia: [], educacao: [], saude: [], pecs: [], outros: [] };
         todosProjetos.forEach(proj => {
             const cat = categorizarProjeto(proj);
             if (tematicos[cat]) tematicos[cat].push(proj);
@@ -225,14 +238,14 @@ const PoliticianProfilePage = () => {
 
         setTodasDespesas(listaDespesas);
 
-        // Auditoria de Privilégios
+        // Auditoria
         let usaCarro = false;
         let usaDivulgacao = false;
         let recebeAuxilioMoradia = false;
 
         listaDespesas.forEach(d => {
             const tipo = normalize(d.tipoDespesa);
-            if (tipo.includes("VEICULO") || tipo.includes("AUTOMOTOR") || tipo.includes("FRETAMENTO") || tipo.includes("COMBUSTIVEL") || tipo.includes("LUBRIFICANTE")) usaCarro = true;
+            if (tipo.includes("VEICULO") || tipo.includes("AUTOMOTOR") || tipo.includes("FRETAMENTO") || tipo.includes("COMBUSTIVEL")) usaCarro = true;
             if (tipo.includes("DIVULGACAO")) usaDivulgacao = true;
             if (tipo.includes("MORADIA") || tipo.includes("ALUGUEL")) recebeAuxilioMoradia = true;
         });
@@ -241,7 +254,7 @@ const PoliticianProfilePage = () => {
 
       } catch (error) {
         console.error("Erro dados:", error);
-        toast({ title: "Erro de Conexão", description: "A API da Câmara demorou para responder. Tente novamente.", variant: "destructive" });
+        toast({ title: "Erro na API", description: "Falha ao carregar dados complementares.", variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -250,7 +263,7 @@ const PoliticianProfilePage = () => {
     if (politico) fetchDadosDinamicos();
   }, [id, anoSelecionado, politico, toast]);
 
-  // 3. Filtragem Local (Mês/Gráfico)
+  // 3. Filtragem Local
   useEffect(() => {
     if (todasDespesas.length === 0) {
         setDespesasFiltradas([]);
@@ -286,13 +299,11 @@ const PoliticianProfilePage = () => {
     setGraficoData(dadosGrafico);
   }, [todasDespesas, mesSelecionado]);
 
-  // --- RENDERIZAÇÃO ---
-
   if (loading || !politico) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-500 font-medium">Auditando dados oficiais...</p>
+        <p className="text-gray-500 font-medium">Analisando histórico parlamentar...</p>
       </div>
     );
   }
@@ -329,7 +340,6 @@ const PoliticianProfilePage = () => {
       </SimpleModal>
 
       <div className="min-h-screen bg-gray-50 pb-20">
-        
         {/* HEADER */}
         <div className="bg-white border-b shadow-sm pt-6 pb-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -362,11 +372,7 @@ const PoliticianProfilePage = () => {
                             <div className="mt-4 flex flex-wrap gap-2">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${!analiseGastos.usaCarro ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                     {!analiseGastos.usaCarro ? <CheckCircle2 className="w-3 h-3 mr-1"/> : <Car className="w-3 h-3 mr-1"/>}
-                                    {!analiseGastos.usaCarro ? 'Não aluga carros' : 'Usa verba de transporte'}
-                                </span>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${!analiseGastos.recebeAuxilioMoradia ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                    <Building className="w-3 h-3 mr-1"/>
-                                    {!analiseGastos.recebeAuxilioMoradia ? 'Imóvel Funcional / Próprio' : 'Recebe Auxílio Moradia'}
+                                    {!analiseGastos.usaCarro ? 'Sem aluguel de carro' : 'Usa verba transporte'}
                                 </span>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium border ${!analiseGastos.usaDivulgacao ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                                     {!analiseGastos.usaDivulgacao ? <CheckCircle2 className="w-3 h-3 mr-1"/> : <Award className="w-3 h-3 mr-1"/>}
@@ -398,44 +404,77 @@ const PoliticianProfilePage = () => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           
-          {/* 1. PROJETOS */}
-          <div className="mb-12">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                        <ScrollText className="w-7 h-7 mr-3 text-blue-600" /> Produção Legislativa
-                    </h2>
-                </div>
-                
-                {/* CARD DE RESUMO DE PLs e PECs */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <Card className="border-blue-200 bg-blue-50/50">
-                        <CardContent className="p-4">
-                            <div className="text-xs font-bold text-blue-600 uppercase mb-1">Projetos de Lei</div>
-                            <div className="text-3xl font-black text-gray-900">{kpis.totalPL}</div>
-                            <div className="text-[10px] text-gray-500">Autoria em {anoSelecionado}</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-purple-200 bg-purple-50/50">
-                        <CardContent className="p-4">
-                            <div className="text-xs font-bold text-purple-600 uppercase mb-1">PECs</div>
-                            <div className="text-3xl font-black text-gray-900">{kpis.totalPEC}</div>
-                            <div className="text-[10px] text-gray-500">Autoria em {anoSelecionado}</div>
-                        </CardContent>
-                    </Card>
-                </div>
+          {/* 1. KEY METRICS CARDS */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <Card className="border-blue-200 bg-blue-50/50">
+                    <CardContent className="p-4">
+                        <div className="text-xs font-bold text-blue-600 uppercase mb-1">Atividade Parlamentar</div>
+                        <div className="flex items-end gap-2">
+                            <span className="text-3xl font-black text-gray-900">{presenca.score}</span>
+                            <span className="text-xs text-gray-500 mb-1">{presenca.label}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-1">{presenca.description}</div>
+                    </CardContent>
+                </Card>
+                <Card className="border-purple-200 bg-purple-50/50">
+                    <CardContent className="p-4">
+                        <div className="text-xs font-bold text-purple-600 uppercase mb-1">Propostas de Lei</div>
+                        <div className="text-3xl font-black text-gray-900">{kpis.totalPL}</div>
+                        <div className="text-[10px] text-gray-500">Autoria em {anoSelecionado}</div>
+                    </CardContent>
+                </Card>
+                <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="p-4">
+                        <div className="text-xs font-bold text-amber-600 uppercase mb-1">PECs / PLPs</div>
+                        <div className="text-3xl font-black text-gray-900">{kpis.totalPEC}</div>
+                        <div className="text-[10px] text-gray-500">Projetos estruturais</div>
+                    </CardContent>
+                </Card>
+                <Card className="border-green-200 bg-green-50/50">
+                    <CardContent className="p-4">
+                        <div className="text-xs font-bold text-green-600 uppercase mb-1">Custo Mensal Médio</div>
+                        <div className="text-xl font-black text-gray-900">R$ {totalGastoPeriodo > 0 ? (totalGastoPeriodo / (mesSelecionado === 'Todos' ? 12 : 1)).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : '0'}</div>
+                        <div className="text-[10px] text-gray-500">Verba utilizada</div>
+                    </CardContent>
+                </Card>
+          </div>
 
-                <Tabs defaultValue="pecs" className="w-full">
+          {/* 2. DESTAQUES: PROJETOS COMPLEXOS */}
+          {projetosComplexos.length > 0 && (
+            <div className="mb-8">
+                <h3 className="font-bold text-lg text-gray-900 mb-4 flex items-center">
+                    <Star className="w-5 h-5 text-yellow-500 mr-2 fill-yellow-500" /> Últimos Movimentos Complexos
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                    {projetosComplexos.slice(0, 2).map((proj) => (
+                        <Card key={proj.id} className="border-yellow-200 bg-yellow-50/30">
+                            <CardContent className="p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                        {proj.siglaTipo} {proj.numero}/{proj.ano}
+                                    </span>
+                                    <span className="text-xs text-gray-400">{new Date().getFullYear()}</span>
+                                </div>
+                                <p className="text-sm font-medium text-gray-800 line-clamp-3">{proj.ementa}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+          )}
+
+          {/* 3. LISTAS DE PROJETOS (TABS) */}
+          <div className="mb-12">
+                <Tabs defaultValue="seguranca" className="w-full">
                     <TabsList className="w-full justify-start h-auto p-1 bg-gray-100 flex-wrap gap-1 mb-6 rounded-xl">
-                        <TabsTrigger value="pecs" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white gap-2 font-bold px-4">
-                            <PenTool className="w-4 h-4" /> PECs ({projetosTematicos.pecs.length})
-                        </TabsTrigger>
                         <TabsTrigger value="seguranca" className="gap-2"><Shield className="w-4 h-4" /> Segurança ({projetosTematicos.seguranca.length})</TabsTrigger>
                         <TabsTrigger value="economia" className="gap-2"><Banknote className="w-4 h-4" /> Economia ({projetosTematicos.economia.length})</TabsTrigger>
                         <TabsTrigger value="educacao" className="gap-2"><GraduationCap className="w-4 h-4" /> Educação ({projetosTematicos.educacao.length})</TabsTrigger>
                         <TabsTrigger value="saude" className="gap-2"><HeartPulse className="w-4 h-4" /> Saúde ({projetosTematicos.saude.length})</TabsTrigger>
+                        <TabsTrigger value="pecs" className="gap-2"><PenTool className="w-4 h-4" /> PECs ({projetosTematicos.pecs.length})</TabsTrigger>
                     </TabsList>
 
-                    {['pecs', 'seguranca', 'economia', 'educacao', 'saude'].map((key) => (
+                    {['seguranca', 'economia', 'educacao', 'saude', 'pecs'].map((key) => (
                         <TabsContent key={key} value={key} className="space-y-4 focus:outline-none">
                             <ProjectList lista={projetosTematicos[key]} />
                             {projetosTematicos[key].length > 3 && (
@@ -448,12 +487,12 @@ const PoliticianProfilePage = () => {
                 </Tabs>
           </div>
 
-          {/* 2. GASTOS */}
+          {/* 4. GASTOS */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
              <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                        <Wallet className="w-7 h-7 mr-3 text-blue-600" /> Gastos da Cota
+                        <Wallet className="w-7 h-7 mr-3 text-blue-600" /> Detalhamento de Gastos
                     </h2>
                     <select 
                         className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
@@ -491,9 +530,8 @@ const PoliticianProfilePage = () => {
                     </div>
                 </Card>
 
-                {/* Lista de Recibos */}
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                    <h3 className="font-bold text-gray-700 mb-2 px-1">Detalhamento (Notas Fiscais)</h3>
+                    <h3 className="font-bold text-gray-700 mb-2 px-1">Notas Fiscais Recentes</h3>
                     {despesasFiltradas.slice(0, 50).map((d, i) => (
                         <div key={i} className="flex justify-between items-center bg-white p-3 rounded border border-gray-100 text-sm hover:bg-gray-50">
                             <div>
@@ -513,9 +551,8 @@ const PoliticianProfilePage = () => {
                 </div>
              </div>
 
-             {/* Coluna Lateral */}
              <div className="space-y-6">
-                <AdBanner title="Parceiro Oficial" />
+                <AdBanner title="Apoio Institucional" />
                 
                 <div className="bg-slate-900 text-white rounded-xl p-6 shadow-lg">
                     <div className="flex items-center gap-2 mb-4">
@@ -524,7 +561,7 @@ const PoliticianProfilePage = () => {
                     </div>
                     <div className="text-4xl font-extrabold text-blue-400 mb-1">{politico.totalFrentes || '...'}</div>
                     <p className="text-slate-400 text-sm mb-4">Participações ativas</p>
-                    <p className="text-xs text-slate-500">Grupos que defendem causas específicas no congresso.</p>
+                    <p className="text-xs text-slate-500">Grupos suprapartidários que defendem causas específicas.</p>
                 </div>
 
                 <div className="bg-orange-50 border border-orange-100 rounded-xl p-6">
@@ -533,7 +570,7 @@ const PoliticianProfilePage = () => {
                         <h3 className="font-bold text-orange-900">Emendas</h3>
                     </div>
                     <p className="text-sm text-orange-800 mb-4">
-                        Veja para quais cidades o dinheiro foi enviado.
+                        Veja para onde o deputado enviou recursos públicos.
                     </p>
                     <a href={`http://www.portaltransparencia.gov.br/busca?termo=${info.nomeEleitoral}`} target="_blank" rel="noopener noreferrer">
                         <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">

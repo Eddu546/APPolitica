@@ -196,6 +196,12 @@ export default defineConfig({
 		react(),
 		addTransformIndexHtml
 	],
+    test: {
+        globals: true,
+        environment: 'jsdom',
+        setupFiles: './src/test/setup.js',
+        css: true,
+    },
 	server: {
 		cors: true,
 		headers: {
@@ -216,7 +222,14 @@ export default defineConfig({
 				'@babel/traverse',
 				'@babel/generator',
 				'@babel/types'
-			]
+			],
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom', 'react-router-dom', 'framer-motion'],
+                    charts: ['recharts'],
+                    ui: ['@radix-ui/react-slot', '@radix-ui/react-tabs', '@radix-ui/react-dialog', '@radix-ui/react-toast', 'lucide-react', 'clsx', 'tailwind-merge']
+                }
+            }
 		}
 	}
 });
